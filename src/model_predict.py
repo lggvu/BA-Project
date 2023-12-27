@@ -116,6 +116,8 @@ def final(df,model,search_algo):
     a.append(label_y)
     b.append(y_pred)
     return label_y,y_pred,best_price,best_total_price[0],label_x
-df1=pd.read_csv("test.csv")
-model = pickle.load(open("./ckpts/stacks/xgb.sav", 'rb'))
-print(final(df1[3:4],model,hill_climbing))
+
+if __name__ == "__main__":
+    df1=pd.read_csv("test.csv")
+    model = pickle.load(open("./ckpts/stacks/xgb.sav", 'rb'))
+    print(final(df1[3:4],model,hill_climbing))
