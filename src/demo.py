@@ -4,23 +4,39 @@ import streamlit as st
 # Data handling dependencies
 import pandas as pd
 import numpy as np
+import pickle
 
 # predict module
-from predict import predict
+from model_predict import *
 
-
+def hill_climbing(f, x0):
+    x = x0  # initial solution
+    while True:
+        neighbors = generate_neighbors(x)  # generate neighbors of x
+        # find the neighbor with the highest function value
+        best_neighbor = max(neighbors, key=f)
+        if f(best_neighbor) <= f(x):  # if the best neighbor is not better than x, stop
+            return x, f(x)
+        x = best_neighbor  # otherwise, continue with the best neighbor
 page_options = ["Retail Price Optimisation","Exploratory Data Analysis"]
 
 
 page_selection = st.sidebar.selectbox("Choose Option", page_options)
+
+# if "stacks" not in st.session_state:
+    # st.session_state.stacks = pickle.load(open("/Users/lggvu/Programming/BA-Project/src/ckpts/stacks/stack.sav", 'rb'))
+# 
+# if "xgb" not in st.session_state:
+    # st.session_state.xgb = pickle.load(open("/Users/lggvu/Programming/BA-Project/src/ckpts/stacks/xgb.sav", 'rb'))
+
 if page_selection == "Retail Price Optimisation":
     print("Retail Price Optimisation")
     # Header contents
     st.write('# Retail Price Prediction')
     # Recommender System algorithm selection
     sys = st.radio("Select an algorithm",
-                    ('Random Forest Regression',
-                    'Collaborative Based Filtering'))
+                    ('XGBoost Regressor',
+                    'Stacking Regressor'))
     st.write('### Enter features of the product ')
 
     # User-based preferences
@@ -31,7 +47,7 @@ if page_selection == "Retail Price Optimisation":
         qty = st.number_input("Product quantity", min_value=0, value=0, step=1)
         unit_price = st.number_input("Unit price", min_value=0.0, value=0.0, step=10.0)
         freight_price = st.number_input("Freight price", min_value=0.0, value=13.0, step=1.0)
-        customers = st.number_input("Number of customers", min_value=0, value=50, step=1)
+        lag_customers = st.number_input("Number of customers", min_value=0, value=50, step=1)
     with col2:
         lag_price = st.number_input("Lag price", min_value=0.0, value=45.0, step=1.0)
         volume = st.number_input("Volume", min_value=0, value=3000, step=100)
@@ -39,35 +55,54 @@ if page_selection == "Retail Price Optimisation":
         product_score = st.number_input("Product score", min_value=0.0, value=4.0, step=0.5)  
     
     if "df" not in st.session_state:
-        st.session_state.df=pd.read_csv("/Users/lggvu/Programming/Business-Analysis/eda/retail_price.csv") 
+        st.session_state.df=pd.read_csv("test.csv") 
 
     st.session_state.df["product_category_name"].iloc[0] = product_category_name
     st.session_state.df["qty"].iloc[0] = qty
     st.session_state.df["unit_price"].iloc[0] = unit_price
     st.session_state.df["freight_price"].iloc[0] = freight_price
-    st.session_state.df["customers"].iloc[0] = customers
+    st.session_state.df["lag_customers"].iloc[0] = lag_customers
     st.session_state.df["lag_price"].iloc[0] = lag_price  
     
 
     # Perform top-10 movie recommendation generation
-    if sys == 'Random Forest Regression':
-        print("Random Forest Regression")
-        # st.button("Predict", type="primary")
+    if sys == 'XGBoost Regressor':
+        print("XGBoost")
+        if "model" not in st.session_state:
+            st.session_state.model = pickle.load(open("/Users/lggvu/Programming/BA-Project/src/ckpts/stacks/xgb.sav", 'rb'))  # ABSOLUTE PATH
         if st.button("Predict"):
             try:
                 with st.spinner('Crunching the numbers...'):
-                    pred=predict(st.session_state.df[0:1])
-                st.markdown(f'## Predicted Price: :green[{"{:.3f}".format(pred)}] USD')
+                    pred = final(st.session_state.df[0:1],st.session_state.model, hill_climbing)   
+                    y_label, y_pred, best_price, best_total_price, label_x = pred
+                st.markdown(f'''
+                            ## Predicted Price: :green[{"{:.3f}".format(y_pred)}] USD
+                            ## Unit price to maximize total price: :green[{"{:.3f}".format(best_price)}] USD
+                            ''')
                 # st.subheader(pred)
             except:
                 st.error("Oops! Looks like this algorithm does't work.\
                           We'll need to fix it!")
 
 
-    if sys == 'Collaborative Based Filtering':
-        print("Collaborative Based Filtering")
+    if sys == 'Stacking Regressor':
+        print("XGBoost")
+        if "model" not in st.session_state:
+            st.session_state.model = pickle.load(open("/Users/lggvu/Programming/BA-Project/src/ckpts/stacks/stack.sav", 'rb'))  # ABSOLUTE PATH
         if st.button("Predict"):
-            print("hello")
+            try:
+                with st.spinner('Crunching the numbers...'):
+                    pred = final(st.session_state.df[3:4],st.session_state.model, hill_climbing)   
+                    y_label, y_pred, best_price, best_total_price, label_x = pred
+                st.markdown(f'''
+                            ## Predicted Price: :green[{"{:.3f}".format(y_pred)}] USD
+                            ## Unit price to maximise total price: :green[{"{:.3f}".format(best_price)}] USD
+                            ''')
+                # st.subheader(pred)
+            except:
+                st.error("Oops! Looks like this algorithm does't work.\
+                          We'll need to fix it!")
+
 
 # -------------------------------------------------------------------
 
